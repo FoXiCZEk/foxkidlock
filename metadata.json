@@ -1,0 +1,6 @@
+{
+  "name": "Rodičovský zámek PC",
+  "description": "Aplikace pro rodičovský zámek na dětské PC s výukovými moduly, statistikami úspěšnosti a vzdálenou správou.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

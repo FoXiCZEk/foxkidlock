@@ -1,0 +1,72 @@
+========================================================================
+    NÁVOD NA ZPROVOZNĚNÍ RODIČOVSKÉHO ZÁMKU NA DĚTSKÉM PC (WINDOWS)
+========================================================================
+
+Aplikace funguje jako plnohodnotný výukový zámek. Aby dítě nemohlo
+program jednoduše obejít, zavřít křížkem nebo překrýt jinou hrou,
+používá se režim KIOSK prohlížeče (Google Chrome nebo Microsoft Edge).
+
+V Kiosk režimu:
+- Prohlížeč běží přes celou obrazovku.
+- Není vidět adresní řádek, záložky ani tlačítko zavřít.
+- Úkoly musí být vyřešeny před odemčením her.
+
+------------------------------------------------------------------------
+KROK 1: STAŽENÍ SPOUŠTĚCÍHO SOUBORU .BAT
+------------------------------------------------------------------------
+1. Stáhněte soubor "Spustit-Kiosk-Zamek.bat" na plochu dětského PC.
+2. Dvojklikem na něj ověřte spuštění – otevře se přímo dětská obrazovka
+   ve fullscreen Kiosk módu.
+
+------------------------------------------------------------------------
+KROK 2: AUTOMATICKÉ SPUŠTĚNÍ PŘI ZAPNUTÍ PC (VOLITELNÉ ALE DOPORUČENÉ)
+------------------------------------------------------------------------
+Možnost A (Jednoduchá):
+- Spusťte soubor "Instalovat-Po-Spusteni.bat". Skript sám nakopíruje
+  spouštěč do systémové složky Po spuštění.
+
+Možnost B (Ruční):
+1. Na dětském PC stiskněte klávesovou zkratku: Win + R
+2. Do okénka zadejte: shell:startup   a stiskněte Enter.
+3. Otevře se složka Po spuštění.
+4. Přetáhněte do této složky stažený soubor "Spustit-Kiosk-Zamek.bat"
+   (nebo jeho zástupce).
+
+Nyní se při každém zapnutí počítače nebo přihlášení dítěte
+automaticky otevře Rodičovský zámek!
+
+------------------------------------------------------------------------
+KROK 3: JAK FUNGUJE POVOLENÍ A BLOKOVÁNÍ MINECRAFTU A JINÝCH HER
+------------------------------------------------------------------------
+V aplikaci funguje povolení pro Minecraft na dvou úrovních:
+
+1. V APLIKACI (UŽIVATELSKÉ ROZHRANÍ):
+- Dokud dítě nesplní požadované úkoly (matematika, čeština, atd.),
+  obrazovka je zamčena na popředí.
+- Jakmile dítě úkoly úspěšně dokončí (nebo rodič dálkově klikne
+  na "Odemknout"), aplikace přejde do stavu "Odemčeno k hraní".
+- V té chvíli se objeví panel s povolenými hrami a tlačítkem
+  "Spustit Minecraft" (využívá protokol windows "minecraft:"
+  nebo odkaz na launcher).
+- Spustí se odpočet herního limitu (např. 45 minut). Po vypršení času
+  se obrazovka opět uzamkne.
+
+2. NA ÚROVNI SYSTÉMU WINDOWS (ZABEZPEČENÍ PROTI OBCHÁZENÍ):
+Pokud chcete mít 100% jistotu, že dítě nespustí Minecraft např. přes
+klávesovou zkratku, druhý monitor nebo Správce úloh, máte k dispozici
+doprovodný skript:
+   "Hlidac-Her-Windows.bat"
+
+Tento skript:
+- Na pozadí se každé 3 sekundy dotazuje serveru na stav zámku.
+- Pokud je stav ZAMČENO (dítě se má učit nebo vypršel čas),
+  skript automaticky ukončí procesy Minecraftu (Minecraft.exe,
+  MinecraftLauncher.exe, javaw.exe).
+- Jakmile dítě splní úkoly, skript procesy nechá běžet a dítě
+  může nerušeně hrát po vymezený čas.
+
+DOPORUČENÍ PRO MAXIMÁLNÍ BEZPEČNOST NA WINDOWS:
+- Dítě by mělo mít na PC běžný uživatelský účet (Standard User),
+  nikoliv administrátora. Administrátorský účet mějte chráněný
+  heslem vy jako rodič.
+========================================================================

@@ -1,0 +1,25 @@
+services:
+  parental-lock:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: parental-lock:latest
+    container_name: parental-lock-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_FILE=/app/data/parental_lock_data.json
+      # Volitelné: GEMINI_API_KEY pro generování dalších výukových úloh pomocí AI
+      # - GEMINI_API_KEY=vase_api_klic
+    volumes:
+      # Trvalé ukládání konfigurace, výsledků a statistik v lokální složce ./data
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
