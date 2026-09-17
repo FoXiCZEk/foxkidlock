@@ -26,6 +26,12 @@ if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 echo [2/4] Kopíruji soubory agenta...
 copy /Y "%SOURCE_DIR%Agent-Zamek-PC.ps1" "%INSTALL_DIR%\Agent-Zamek-PC.ps1" >nul
 copy /Y "%SOURCE_DIR%Spustit-Agenta-Skryte.vbs" "%INSTALL_DIR%\Spustit-Agenta-Skryte.vbs" >nul
+if exist "%SOURCE_DIR%Odinstalovat-Agenta-Windows.bat" (
+    copy /Y "%SOURCE_DIR%Odinstalovat-Agenta-Windows.bat" "%INSTALL_DIR%\Odinstalovat-Agenta-Windows.bat" >nul
+)
+if exist "%SOURCE_DIR%README-AGENT.txt" (
+    copy /Y "%SOURCE_DIR%README-AGENT.txt" "%INSTALL_DIR%\README-AGENT.txt" >nul
+)
 if exist "%SOURCE_DIR%server_url.txt" (
     copy /Y "%SOURCE_DIR%server_url.txt" "%INSTALL_DIR%\server_url.txt" >nul
 )

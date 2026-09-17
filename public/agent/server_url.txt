@@ -1,0 +1,2 @@
+# Zde můžete uvést adresu vašeho serveru Rodičovského zámku PC (např. https://vas-server.cz nebo http://192.168.1.100:3000)
+# Pokud je tento soubor prázdný, agent se automaticky pokusí připojit na lokální server a následně na výchozí cloud server.

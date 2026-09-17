@@ -1,0 +1,166 @@
+name: Build & Release Windows Agent
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Verze balíčku (např. v2.3.0)'
+        required: true
+        default: 'v2.3.0'
+      server_url:
+        description: 'Přednastavená URL adresa serveru (volitelné, např. https://moje-domena.cz)'
+        required: false
+        default: ''
+      is_prerelease:
+        description: 'Označit jako předběžné vydání (pre-release)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    name: Zabalit a vydat agenta pro Windows
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Stáhnout kód repozitáře
+        uses: actions/checkout@v4
+
+      - name: Určení verze balíčku
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.version_tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          # Odstranění úvodního 'v' pro čisté číslo verze pokud existuje
+          CLEAN_VER=$(echo "$TAG" | sed 's/^v//')
+          echo "TAG_NAME=$TAG" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$CLEAN_VER" >> "$GITHUB_OUTPUT"
+          echo "ZIP_NAME=RodicovskyZamek-WindowsAgent-$TAG.zip" >> "$GITHUB_OUTPUT"
+          echo "Příprava verze: $TAG ($CLEAN_VER)"
+
+      - name: Sestavení instalačního balíčku
+        run: |
+          TARGET_DIR="RodicovskyZamek-WindowsAgent"
+          mkdir -p "$TARGET_DIR"
+
+          # Zkopírování všech potřebných skriptů pro Windows agenta
+          cp public/agent/Agent-Zamek-PC.ps1 "$TARGET_DIR/"
+          cp public/agent/Instalovat-Agenta-Windows.bat "$TARGET_DIR/"
+          cp public/agent/Odinstalovat-Agenta-Windows.bat "$TARGET_DIR/"
+          cp public/agent/Spustit-Agenta-Skryte.vbs "$TARGET_DIR/"
+          cp public/agent/README-AGENT.txt "$TARGET_DIR/"
+
+          # Nastavení server_url.txt (pokud bylo zadáno ve workflow_dispatch)
+          if [ -n "${{ github.event.inputs.server_url }}" ]; then
+            echo "${{ github.event.inputs.server_url }}" > "$TARGET_DIR/server_url.txt"
+          elif [ -f public/agent/server_url.txt ]; then
+            cp public/agent/server_url.txt "$TARGET_DIR/"
+          else
+            touch "$TARGET_DIR/server_url.txt"
+          fi
+
+          # Vygenerování přehledného souboru NAVOD-K-POUZITI.txt
+          cat << 'EOF' > "$TARGET_DIR/NAVOD-K-POUZITI.txt"
+==============================================================================
+   RODIČOVSKÝ ZÁMEK PC - INSTALAČNÍ BALÍČEK PRO WINDOWS (DĚTSKÝ POČÍTAČ)
+==============================================================================
+
+Tento balíček obsahuje kompletního systémového agenta pro bezpečný dohled nad PC:
+- Běží skrytě a ticho na pozadí stanice bez rušivých oken.
+- Při spuštění a přihlášení do Windows zkontroluje stav zámku.
+- Pokud je PC zamčeno, ukončí všechny hry (Minecraft, Roblox, Steam, Epic, Fortnite atd.).
+- Udržuje celoobrazovkový Kiosk s výukovými otázkami na popředí.
+- Blokuje nepovolené weby (YouTube, Netflix, TikTok, Twitch...) na úrovni DNS i prohlížeče.
+- Umožňuje rodiči dálkově kdykoli z mobilu odemknout PC, přeskočit otázky či přidat čas.
+
+------------------------------------------------------------------------------
+JAK NAINSTALOVAT NA DĚTSKÝ POČÍTAČ:
+------------------------------------------------------------------------------
+1. Rozbalte celý tento ZIP archiv na dětském počítači do libovolné složky.
+2. (Volitelné) Pokud chcete nastavit vlastní server, otevřete soubor "server_url.txt"
+   a vložte do něj URL adresu vašeho serveru (např. https://moje-domena.cz).
+3. Klikněte pravým tlačítkem na "Instalovat-Agenta-Windows.bat" a zvolte
+   "Spustit jako správce" (pro plnou ochranu DNS hosts souboru) nebo spusťte běžně.
+4. Hotovo! Agent je nainstalován a ihned běží. V rodičovském panelu uvidíte stav ONLINE.
+
+------------------------------------------------------------------------------
+JAK ODINSTALOVAT:
+------------------------------------------------------------------------------
+Kdykoliv spusťte přiložený soubor:
+   Odinstalovat-Agenta-Windows.bat
+Tím se ukončí běžící procesy a odebere se automatické spouštění po startu Windows.
+==============================================================================
+EOF
+
+          # Převod konců řádků na CRLF (standard pro Windows) u textových souborů a dávkových skriptů
+          sed -i 's/$/\r/' "$TARGET_DIR/NAVOD-K-POUZITI.txt" || true
+          sed -i 's/$/\r/' "$TARGET_DIR/server_url.txt" || true
+
+          # Vytvoření ZIP archivu
+          zip -r "${{ steps.vars.outputs.ZIP_NAME }}" "$TARGET_DIR"
+          cp "${{ steps.vars.outputs.ZIP_NAME }}" "RodicovskyZamek-WindowsAgent-latest.zip"
+
+          # Vygenerování kontrolních součtů SHA256
+          sha256sum "${{ steps.vars.outputs.ZIP_NAME }}" "RodicovskyZamek-WindowsAgent-latest.zip" > SHA256SUMS.txt
+
+          echo "Balíček úspěšně vytvořen:"
+          ls -lh *.zip SHA256SUMS.txt
+
+      - name: Uložit ZIP jako GitHub Actions Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.vars.outputs.ZIP_NAME }}
+          path: |
+            ${{ steps.vars.outputs.ZIP_NAME }}
+            RodicovskyZamek-WindowsAgent-latest.zip
+            SHA256SUMS.txt
+          retention-days: 30
+
+      - name: Připravit poznámky k vydání (Release Notes)
+        run: |
+          cat << 'EOF' > RELEASE_NOTES.md
+          ## 🎮 Rodičovský Zámek PC – Instalační balíček pro Windows (${{ steps.vars.outputs.TAG_NAME }})
+
+          Hotový balíček systémového agenta pro instalaci na dětský počítač s Windows 10 a Windows 11.
+
+          ### 📦 Obsah balíčku ke stažení:
+          - **`Instalovat-Agenta-Windows.bat`** – Instalace 1 kliknutím (automatický start po přihlášení).
+          - **`Agent-Zamek-PC.ps1`** – Výkonný systémový agent (hlídání herních procesů, Kiosku a webů).
+          - **`Spustit-Agenta-Skryte.vbs`** – Tichý spouštěč bez blikání oken na pozadí.
+          - **`Odinstalovat-Agenta-Windows.bat`** – Čisté odstranění agenta ze systému.
+          - **`server_url.txt`** – Snadná konfigurace adresy vašeho serveru.
+          - **`NAVOD-K-POUZITI.txt`** – Podrobný návod krok za krokem.
+
+          ### 🛡️ Funkce agenta:
+          1. **Automatické spouštění**: Spustí se okamžitě po zapnutí PC / přihlášení dítěte.
+          2. **Vynucení výukových úkolů**: Při zamknutí okamžitě zavře hry (Minecraft, Roblox, Steam, Epic...) a drží celoobrazovkový Kiosk s otázkami.
+          3. **Vzdálené blokování webů**: Dvouvrstvé blokování stránek jako YouTube, Netflix, TikTok, Twitch (DNS hosts + zavírání panelů).
+          4. **Dálkové ovládání rodičem**: Možnost z mobilu na dálku okamžitě odemknout, přeskočit otázky nebo zamknout.
+
+          ---
+          *Archiv stáhněte níže v sekci **Assets** (`${{ steps.vars.outputs.ZIP_NAME }}`).*
+          EOF
+
+      - name: Vytvořit GitHub Release a nahrát balíček (Assets)
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ steps.vars.outputs.TAG_NAME }}
+          name: "Rodičovský Zámek PC - Windows Agent ${{ steps.vars.outputs.TAG_NAME }}"
+          body_path: RELEASE_NOTES.md
+          prerelease: ${{ github.event.inputs.is_prerelease || false }}
+          draft: false
+          files: |
+            ${{ steps.vars.outputs.ZIP_NAME }}
+            RodicovskyZamek-WindowsAgent-latest.zip
+            SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
