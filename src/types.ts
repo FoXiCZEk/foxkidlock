@@ -1,4 +1,4 @@
-export type SubjectId = 'math' | 'czech' | 'geography' | 'english' | 'science';
+export type SubjectId = string;
 
 export type GradeLevel = 1 | 2 | 3 | 4 | 5;
 
@@ -24,6 +24,7 @@ export interface SubjectModuleConfig {
   enabled: boolean;
   requiredQuestionsCount: number; // e.g., 5
   grade: GradeLevel;
+  isCustom?: boolean;
 }
 
 export interface AllowedApp {
@@ -37,6 +38,15 @@ export interface AllowedApp {
   enabled: boolean;
 }
 
+export interface BlockedWebSite {
+  id: string;
+  name: string;
+  domains: string[]; // e.g. ['youtube.com', 'youtu.be', 'googlevideo.com']
+  category: 'video' | 'streaming' | 'social' | 'games' | 'custom';
+  enabled: boolean;
+  isPreset?: boolean;
+}
+
 export interface ParentSettings {
   parentPin: string; // e.g. "1234"
   childName: string; // e.g. "Matyáš"
@@ -46,6 +56,10 @@ export interface ParentSettings {
   strictKioskMode: boolean; // if true, full-screen lock & sound on blur
   allowedApps: AllowedApp[];
   customQuestions: Question[];
+  autoGenerateWithAi?: boolean; // if true, dynamically generate questions when needed
+  blockedWebsites?: BlockedWebSite[];
+  webFilterEnabled?: boolean;
+  webFilterMode?: 'always' | 'only_locked';
 }
 
 export interface AttemptLog {
@@ -71,6 +85,24 @@ export interface OverallStats {
   recentAttempts: AttemptLog[];
 }
 
+export interface DesktopAgentInfo {
+  isOnline: boolean;
+  lastHeartbeat: number;
+  hostname?: string;
+  os?: string;
+  version?: string;
+  killedProcessesCount: number;
+  lastKilledProcess?: string;
+  lastKilledTimestamp?: number;
+  blockedProcessNames?: string[];
+  blockedWebsites?: BlockedWebSite[];
+  webFilterEnabled?: boolean;
+  webFilterMode?: 'always' | 'only_locked';
+  activeBlockedDomains?: string[];
+  webBlockCount?: number;
+  lastWebBlockEvent?: string;
+}
+
 export interface ChildLiveState {
   pcId: string;
   status: 'locked_studying' | 'unlocked_playing' | 'parent_bypass' | 'time_expired';
@@ -84,6 +116,7 @@ export interface ChildLiveState {
   lastHeartbeat: number;
   activeMessageFromParent: string | null;
   isKioskActive: boolean;
+  agent?: DesktopAgentInfo;
 }
 
 export interface RemoteCommand {

@@ -1,4 +1,4 @@
-import { Question, SubjectModuleConfig, AllowedApp, ParentSettings } from '../types';
+import { Question, SubjectModuleConfig, AllowedApp, ParentSettings, BlockedWebSite } from '../types';
 
 export const INITIAL_MODULES: Record<string, SubjectModuleConfig> = {
   math: {
@@ -370,6 +370,73 @@ export const DEFAULT_QUESTIONS: Question[] = [
   },
 ];
 
+export const DEFAULT_BLOCKED_WEBSITES: BlockedWebSite[] = [
+  {
+    id: 'youtube',
+    name: 'YouTube & Videa',
+    domains: ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'googlevideo.com'],
+    category: 'video',
+    enabled: true,
+    isPreset: true,
+  },
+  {
+    id: 'netflix',
+    name: 'Netflix',
+    domains: ['netflix.com', 'www.netflix.com', 'nflxext.com', 'nflxvideo.net'],
+    category: 'streaming',
+    enabled: true,
+    isPreset: true,
+  },
+  {
+    id: 'tiktok',
+    name: 'TikTok',
+    domains: ['tiktok.com', 'www.tiktok.com', 'tiktokcdn.com', 'byteoversea.com'],
+    category: 'social',
+    enabled: true,
+    isPreset: true,
+  },
+  {
+    id: 'twitch',
+    name: 'Twitch Livestreamy',
+    domains: ['twitch.tv', 'www.twitch.tv', 'ttvnw.net'],
+    category: 'streaming',
+    enabled: true,
+    isPreset: true,
+  },
+  {
+    id: 'disney',
+    name: 'Disney+',
+    domains: ['disneyplus.com', 'www.disneyplus.com', 'disney-plus.net', 'bamgrid.com'],
+    category: 'streaming',
+    enabled: true,
+    isPreset: true,
+  },
+  {
+    id: 'social',
+    name: 'Instagram & Facebook',
+    domains: ['instagram.com', 'www.instagram.com', 'facebook.com', 'www.facebook.com', 'fbcdn.net'],
+    category: 'social',
+    enabled: true,
+    isPreset: true,
+  },
+  {
+    id: 'roblox_web',
+    name: 'Roblox Web & Games',
+    domains: ['roblox.com', 'www.roblox.com', 'rbxcdn.com'],
+    category: 'games',
+    enabled: true,
+    isPreset: true,
+  },
+  {
+    id: 'primevideo',
+    name: 'Amazon Prime Video',
+    domains: ['primevideo.com', 'www.primevideo.com', 'aiv-cdn.net'],
+    category: 'streaming',
+    enabled: false,
+    isPreset: true,
+  },
+];
+
 export const DEFAULT_PARENT_SETTINGS: ParentSettings = {
   parentPin: '1234',
   childName: 'Filip',
@@ -379,4 +446,7 @@ export const DEFAULT_PARENT_SETTINGS: ParentSettings = {
   strictKioskMode: true,
   allowedApps: INITIAL_ALLOWED_APPS,
   customQuestions: [],
+  blockedWebsites: DEFAULT_BLOCKED_WEBSITES,
+  webFilterEnabled: true,
+  webFilterMode: 'always',
 };

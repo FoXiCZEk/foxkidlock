@@ -96,8 +96,31 @@ export default function App() {
 
   useEffect(() => {
     fetchState();
-    const interval = setInterval(fetchState, 2500);
-    return () => clearInterval(interval);
+
+    // Server-Sent Events for instant zero-latency push synchronization
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('/api/events');
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.childState) setChildState(data.childState);
+          if (data.settings) setSettings(data.settings);
+          if (data.stats) setStats(data.stats);
+        } catch {
+          // Ignore parse errors
+        }
+      };
+    } catch {
+      // Offline fallback
+    }
+
+    const interval = setInterval(fetchState, 3000);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      clearInterval(interval);
+    };
   }, [fetchState]);
 
   const showToast = (msg: string) => {
@@ -159,9 +182,21 @@ export default function App() {
         const data = await res.json();
         if (data.childState) setChildState(data.childState);
         fetchState();
+        if (command === 'force_lock') {
+          showToast('🔒 Počítač byl na dálku OKAMŽITĚ uzamčen!');
+        } else if (command === 'skip_tasks') {
+          showToast('🔓 Úkoly přeskočeny – počítač byl dálkově odemčen!');
+        } else if (command === 'add_playtime') {
+          showToast(`⏱️ Úspěšně přidáno +${payload?.minutes || 15} min času!`);
+        } else if (command === 'reset_session') {
+          showToast('🔄 Denní úkoly byly resetovány.');
+        } else {
+          showToast('Příkaz byl úspěšně doručen.');
+        }
       }
     } catch (e) {
       console.error('Error sending remote command:', e);
+      showToast('⚠️ Chyba při odesílání dálkového příkazu.');
     }
   };
 

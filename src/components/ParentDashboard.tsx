@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -34,9 +34,17 @@ import {
   Languages,
   FileCode2,
   Terminal,
-  Server
+  Server,
+  Sparkles,
+  FolderPlus,
+  Layers,
+  X,
+  Cpu,
+  Globe,
 } from 'lucide-react';
 import { DockerDeployTab } from './DockerDeployTab';
+import { DesktopAgentControl } from './DesktopAgentControl';
+import { WebFilterControl } from './WebFilterControl';
 import {
   ParentSettings,
   ChildLiveState,
@@ -44,9 +52,15 @@ import {
   SubjectId,
   GradeLevel,
   Question,
-  AllowedApp
+  AllowedApp,
+  SubjectModuleConfig,
 } from '../types';
 import { uploadJsonToGoogleDrive, requestGoogleDriveToken } from '../utils/googleDrive';
+import {
+  renderSubjectOrCategoryIcon,
+  CATEGORY_ICONS,
+  CATEGORY_COLORS,
+} from '../utils/subjectIcons';
 
 interface ParentDashboardProps {
   settings: ParentSettings;
@@ -71,8 +85,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   isRemoteWebMode = false,
   onOpenScriptModal,
 }) => {
-  // Tabs: 'remote' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker'
-  const [activeTab, setActiveTab] = useState<'remote' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker'>('remote');
+  // Tabs: 'remote' | 'agent' | 'webfilter' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker'
+  const [activeTab, setActiveTab] = useState<'remote' | 'agent' | 'webfilter' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker'>('remote');
 
   // Form states for settings
   const [formData, setFormData] = useState<ParentSettings>({ ...settings });
@@ -105,6 +119,232 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
   // PIN change state
   const [newPin, setNewPin] = useState(settings.parentPin);
+
+  // Gemini AI Question Generator states
+  const [aiStatus, setAiStatus] = useState<{ available: boolean; model: string; hasApiKey: boolean } | null>(null);
+  const [aiSubject, setAiSubject] = useState<SubjectId>('math');
+  const [aiGrade, setAiGrade] = useState<GradeLevel>(3);
+  const [aiCount, setAiCount] = useState<number>(3);
+  const [aiTopic, setAiTopic] = useState<string>('');
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [aiResultNotice, setAiResultNotice] = useState<{ text: string; error?: boolean } | null>(null);
+
+  // New category creation in AI generator
+  const [aiNewCatName, setAiNewCatName] = useState('');
+  const [aiNewCatDesc, setAiNewCatDesc] = useState('');
+  const [aiNewCatIcon, setAiNewCatIcon] = useState('Sparkles');
+
+  // Custom Category Creation Modal
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDesc, setNewCatDesc] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('Sparkles');
+  const [newCatColor, setNewCatColor] = useState('indigo');
+  const [newCatGrade, setNewCatGrade] = useState<GradeLevel>(3);
+  const [newCatRequired, setNewCatRequired] = useState<number>(3);
+  const [newCatGenerateAi, setNewCatGenerateAi] = useState(true);
+  const [newCatAiCount, setNewCatAiCount] = useState<number>(4);
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [categoryCreationError, setCategoryCreationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/ai/status')
+      .then((r) => r.json())
+      .then((data) => setAiStatus(data))
+      .catch(() => setAiStatus({ available: false, model: 'gemini-3.8-flash', hasApiKey: false }));
+  }, []);
+
+  const handleGenerateAiQuestions = async () => {
+    const isNewCatMode = aiSubject === '__new_category__';
+    if (isNewCatMode && !aiNewCatName.trim()) {
+      setAiResultNotice({ text: 'Zadejte prosím název nové kategorie.', error: true });
+      return;
+    }
+
+    setIsAiGenerating(true);
+    setAiResultNotice(null);
+    try {
+      const res = await fetch('/api/ai/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectId: isNewCatMode ? undefined : aiSubject,
+          newCategory: isNewCatMode
+            ? {
+                name: aiNewCatName.trim(),
+                description: aiNewCatDesc.trim(),
+                icon: aiNewCatIcon,
+                color: 'indigo',
+                grade: aiGrade,
+                requiredQuestionsCount: 3,
+              }
+            : undefined,
+          grade: aiGrade,
+          count: aiCount,
+          topic: aiTopic,
+          pin: settings.parentPin,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setAiResultNotice({ text: data.error || 'Generování selhalo', error: true });
+      } else {
+        const catName = data.category?.name || (formData.modules[aiSubject]?.name || aiSubject);
+        setAiResultNotice({
+          text: `Úspěšně vygenerováno ${data.generatedCount} nových otázek pro kategorii "${catName}" přes Gemini AI!`,
+          error: false,
+        });
+
+        if (data.category && data.subjectId) {
+          setFormData((prev) => ({
+            ...prev,
+            modules: {
+              ...prev.modules,
+              [data.subjectId]: data.category,
+            },
+            customQuestions: [...(prev.customQuestions || []), ...(data.questions || [])],
+          }));
+          setAiSubject(data.subjectId);
+          setAiNewCatName('');
+          setAiNewCatDesc('');
+        } else if (data.questions) {
+          setFormData((prev) => ({
+            ...prev,
+            customQuestions: [...(prev.customQuestions || []), ...data.questions],
+          }));
+        }
+        setAiTopic('');
+      }
+    } catch (e: any) {
+      setAiResultNotice({ text: `Chyba při komunikaci se serverem: ${e.message || String(e)}`, error: true });
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const handleCreateCategoryDirectly = async () => {
+    if (!newCatName.trim()) {
+      setCategoryCreationError('Zadejte prosím název kategorie.');
+      return;
+    }
+    setIsCreatingCategory(true);
+    setCategoryCreationError(null);
+    try {
+      if (newCatGenerateAi) {
+        const res = await fetch('/api/ai/generate-questions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            newCategory: {
+              name: newCatName.trim(),
+              description: newCatDesc.trim(),
+              icon: newCatIcon,
+              color: newCatColor,
+              requiredQuestionsCount: newCatRequired,
+              grade: newCatGrade,
+            },
+            grade: newCatGrade,
+            count: newCatAiCount,
+            topic: newCatDesc.trim(),
+            pin: settings.parentPin,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setCategoryCreationError(data.error || 'Generování úloh přes AI selhalo.');
+        } else {
+          if (data.category && data.subjectId) {
+            setFormData((prev) => ({
+              ...prev,
+              modules: {
+                ...prev.modules,
+                [data.subjectId]: data.category,
+              },
+              customQuestions: [...(prev.customQuestions || []), ...(data.questions || [])],
+            }));
+            setAiSubject(data.subjectId);
+          }
+          setIsAddCategoryModalOpen(false);
+          setNewCatName('');
+          setNewCatDesc('');
+          setAiResultNotice({
+            text: `Vlastní kategorie "${newCatName.trim()}" byla vytvořena a Gemini AI do ní nagenerovalo ${data.generatedCount} úloh!`,
+            error: false,
+          });
+        }
+      } else {
+        const res = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: {
+              name: newCatName.trim(),
+              description: newCatDesc.trim(),
+              icon: newCatIcon,
+              color: newCatColor,
+              requiredQuestionsCount: newCatRequired,
+              grade: newCatGrade,
+              enabled: true,
+            },
+            pin: settings.parentPin,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          setCategoryCreationError(data.error || 'Vytvoření kategorie selhalo.');
+        } else {
+          if (data.category) {
+            setFormData((prev) => ({
+              ...prev,
+              modules: {
+                ...prev.modules,
+                [data.category.id]: data.category,
+              },
+            }));
+            setAiSubject(data.category.id);
+          }
+          setIsAddCategoryModalOpen(false);
+          setNewCatName('');
+          setNewCatDesc('');
+        }
+      }
+    } catch (err: any) {
+      setCategoryCreationError(`Chyba: ${err.message || String(err)}`);
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
+
+  const handleDeleteCustomCategory = async (categoryId: string) => {
+    const cat = formData.modules[categoryId];
+    const catName = cat?.name || categoryId;
+    if (!window.confirm(`Opravdu chcete smazat kategorii "${catName}" a všechny její otázky?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/categories/${encodeURIComponent(categoryId)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: settings.parentPin, deleteQuestions: true }),
+      });
+      if (res.ok) {
+        setFormData((prev) => {
+          const nextModules = { ...prev.modules };
+          delete nextModules[categoryId];
+          return {
+            ...prev,
+            modules: nextModules,
+            customQuestions: (prev.customQuestions || []).filter((q) => q.subjectId !== categoryId),
+          };
+        });
+        if (aiSubject === categoryId) {
+          setAiSubject('math');
+        }
+      }
+    } catch (e) {
+      console.error('Chyba při mazání kategorie:', e);
+    }
+  };
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
@@ -202,18 +442,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
   // Render subject icon
   const getSubjectIcon = (id: SubjectId) => {
-    switch (id) {
-      case 'math':
-        return <Calculator className="w-4 h-4 text-emerald-400" />;
-      case 'czech':
-        return <BookOpen className="w-4 h-4 text-sky-400" />;
-      case 'geography':
-        return <Compass className="w-4 h-4 text-amber-400" />;
-      case 'science':
-        return <Leaf className="w-4 h-4 text-teal-400" />;
-      case 'english':
-        return <Languages className="w-4 h-4 text-indigo-400" />;
-    }
+    const mod = formData.modules[id];
+    return renderSubjectOrCategoryIcon(id, mod?.icon, 'w-4 h-4 text-amber-400');
   };
 
   const isChildOnline = Date.now() - childState.lastHeartbeat < 15000;
@@ -237,6 +467,27 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                     Vzdálené webové rozhraní
                   </span>
                 )}
+                {childState.agent?.isOnline ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('agent')}
+                    className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold border border-emerald-500/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title={`Windows Agent běží na stanici: ${childState.agent.hostname || 'PC dítěte'}`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Win Agent: Aktivní</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('agent')}
+                    className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Klikněte pro zobrazení a instalaci systémového Windows agenta"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-slate-500" />
+                    <span>Nainstalovat agenta</span>
+                  </button>
+                )}
               </div>
               <p className="text-xs text-slate-400">
                 Správa výukových modulů, statistik a vzdálené odemykání pro: {settings.childName}
@@ -245,6 +496,28 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {childState.status === 'unlocked_playing' ? (
+              <button
+                id="btn-header-quick-force-lock"
+                onClick={() => onSendRemoteCommand('force_lock')}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold shadow-md shadow-rose-900/40 transition-all active:scale-95"
+                title="Okamžitě zablokovat hry a vrátit zámek s úkoly"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Okamžitě zamknout</span>
+              </button>
+            ) : (
+              <button
+                id="btn-header-quick-unlock"
+                onClick={() => onSendRemoteCommand('skip_tasks')}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-900/40 transition-all active:scale-95"
+                title="Dálkově odemknout PC a povolit hry"
+              >
+                <Unlock className="w-3.5 h-3.5" />
+                <span>Odemknout hry</span>
+              </button>
+            )}
+
             {!isRemoteWebMode && (
               <button
                 id="btn-close-parent-panel"
@@ -272,6 +545,42 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             <span>Vzdálený dohled a příkazy</span>
             {isChildOnline && (
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping ml-1" />
+            )}
+          </button>
+
+          <button
+            id="tab-parent-agent"
+            onClick={() => setActiveTab('agent')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+              activeTab === 'agent'
+                ? 'bg-amber-500 text-slate-950'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Cpu className="w-4 h-4" />
+            <span>Windows Agent (Zamykání her)</span>
+            {childState.agent?.isOnline ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Instalace
+              </span>
+            )}
+          </button>
+
+          <button
+            id="tab-parent-webfilter"
+            onClick={() => setActiveTab('webfilter')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+              activeTab === 'webfilter'
+                ? 'bg-amber-500 text-slate-950'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            <span>Blokování webů (YouTube, Netflix...)</span>
+            {formData.webFilterEnabled !== false && (
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse ml-0.5" />
             )}
           </button>
 
@@ -366,8 +675,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           {/* TAB 1: REMOTE MONITORING & ACTIONS */}
           {activeTab === 'remote' && (
             <div className="space-y-6">
-              {/* Live Status Card */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Live Status Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
                   <div>
                     <span className="text-xs text-slate-400 block font-medium">Stav Dětského PC</span>
@@ -414,17 +723,71 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                   </div>
                   <Clock className="w-8 h-8 text-slate-600" />
                 </div>
+
+                <div
+                  onClick={() => setActiveTab('agent')}
+                  className="bg-slate-950/60 hover:bg-slate-900/80 p-5 rounded-2xl border border-slate-800 hover:border-amber-500/40 flex items-center justify-between cursor-pointer transition-all group"
+                  title="Klikněte pro správu Windows Agenta"
+                >
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium flex items-center gap-1">
+                      Windows Agent
+                      <span className="text-[10px] text-amber-400 font-semibold group-hover:underline">Spravovat →</span>
+                    </span>
+                    <span className="text-base font-bold text-white flex items-center gap-2 mt-1">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          childState.agent?.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                        }`}
+                      />
+                      {childState.agent?.isOnline ? 'Aktivní & Hlídá' : 'Nenainstalován'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      {childState.agent?.isOnline
+                        ? `${childState.agent.killedProcessesCount || 0} ukončených her`
+                        : 'Klikněte pro instalaci'}
+                    </span>
+                  </div>
+                  <Cpu className="w-8 h-8 text-slate-600 group-hover:text-amber-400 transition-colors" />
+                </div>
+
+                <div
+                  onClick={() => setActiveTab('webfilter')}
+                  className="bg-slate-950/60 hover:bg-slate-900/80 p-5 rounded-2xl border border-slate-800 hover:border-rose-500/40 flex items-center justify-between cursor-pointer transition-all group"
+                  title="Klikněte pro správu blokování webů"
+                >
+                  <div>
+                    <span className="text-xs text-slate-400 block font-medium flex items-center gap-1">
+                      Filtrování webů
+                      <span className="text-[10px] text-rose-400 font-semibold group-hover:underline">Nastavit →</span>
+                    </span>
+                    <span className="text-base font-bold text-white flex items-center gap-2 mt-1">
+                      <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          formData.webFilterEnabled !== false ? 'bg-rose-400 animate-pulse' : 'bg-slate-500'
+                        }`}
+                      />
+                      {formData.webFilterEnabled !== false ? 'Aktivní (Chráněno)' : 'Vypnuto'}
+                    </span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      YouTube, Netflix, TikTok...
+                    </span>
+                  </div>
+                  <Globe className="w-8 h-8 text-slate-600 group-hover:text-rose-400 transition-colors" />
+                </div>
               </div>
 
               {/* PRIMARY REMOTE ACTIONS */}
-              <div className="bg-gradient-to-br from-amber-500/10 via-slate-900 to-indigo-950/40 p-6 rounded-2xl border border-amber-500/30">
-                <h3 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                  <Unlock className="w-5 h-5 text-amber-400" />
-                  Rychlé dálkové akce pro rodiče
-                </h3>
-                <p className="text-xs text-slate-300 mb-6">
-                  Zde můžete jedním kliknutím přeskočit úkoly, okamžitě odemknout počítač pro dítě, nebo naopak zablokovat obrazovku.
-                </p>
+              <div className="bg-gradient-to-br from-amber-500/10 via-slate-900 to-indigo-950/40 p-6 rounded-2xl border border-amber-500/30 space-y-4">
+                <div>
+                  <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                    <Unlock className="w-5 h-5 text-amber-400" />
+                    Rychlé dálkové akce pro rodiče
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Zde můžete jedním kliknutím přeskočit úkoly, okamžitě odemknout počítač pro dítě, nebo naopak zablokovat obrazovku a weby.
+                  </p>
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {/* ONE-CLICK REMOTE BYPASS (Requirement: moznost pro rodice preskocit ukoly) */}
@@ -475,6 +838,64 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                       Vynulovat postup v sezení
                     </span>
                   </button>
+                </div>
+
+                {/* Quick Remote Web Filter Bar */}
+                <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <Globe className="w-4 h-4 text-rose-400" />
+                    <span className="text-xs font-bold text-white">Dálková blokace webů (YouTube, Netflix...):</span>
+                    <span
+                      className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                        formData.webFilterEnabled !== false
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {formData.webFilterEnabled !== false ? 'ZAPNUTO (Blokováno)' : 'VYPNUTO (Povoleno)'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {formData.webFilterEnabled !== false ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await fetch('/api/agent/web-filter', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pin: formData.parentPin, action: 'unblock-now' }),
+                          });
+                          setFormData((prev) => ({ ...prev, webFilterEnabled: false }));
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold border border-slate-700 transition-colors"
+                      >
+                        Povolit weby
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await fetch('/api/agent/web-filter', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ pin: formData.parentPin, action: 'block-now' }),
+                          });
+                          setFormData((prev) => ({ ...prev, webFilterEnabled: true, webFilterMode: 'always' }));
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-colors"
+                      >
+                        Zablokovat weby IHNED
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('webfilter')}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 text-xs font-bold border border-indigo-500/30 transition-colors"
+                    >
+                      Spravovat weby →
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -590,30 +1011,74 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
             </div>
           )}
 
+          {/* TAB: WINDOWS AGENT (DESKTOP PROCESS WATCHDOG & LOCK) */}
+          {activeTab === 'agent' && (
+            <DesktopAgentControl
+              agent={childState.agent}
+              childStatus={childState.status}
+              parentPin={formData.parentPin}
+            />
+          )}
+
+          {/* TAB: WEB FILTERING (BLOCK YOUTUBE, NETFLIX, CUSTOM SITES) */}
+          {activeTab === 'webfilter' && (
+            <WebFilterControl
+              blockedWebsites={formData.blockedWebsites || childState.agent?.blockedWebsites}
+              webFilterEnabled={formData.webFilterEnabled}
+              webFilterMode={formData.webFilterMode}
+              parentPin={formData.parentPin}
+              agent={childState.agent}
+              onRefresh={() => {
+                // Fetch fresh state to update parent form
+                fetch('/api/state')
+                  .then((r) => r.json())
+                  .then((d) => {
+                    if (d.settings) setFormData(d.settings);
+                  })
+                  .catch(() => {});
+              }}
+            />
+          )}
+
           {/* TAB 2: MODULES & TASK CONFIG */}
           {activeTab === 'modules' && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-white">Konfigurace výukových předmětů</h3>
+                  <h3 className="text-base font-bold text-white">Konfigurace výukových předmětů a kategorií</h3>
                   <p className="text-xs text-slate-400">
-                    Aktivujte předměty, které musí dítě před hraním splnit, a nastavte obtížnost podle třídy.
+                    Aktivujte předměty pro odemčení PC a přidejte libovolné vlastní kategorie, pro které AI nageneruje úlohy.
                   </p>
                 </div>
-                <button
-                  id="btn-save-modules"
-                  onClick={handleSaveSettings}
-                  disabled={isSaving}
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition-all shadow-md"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Uložit změny</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    id="btn-open-add-category-modal"
+                    onClick={() => {
+                      setCategoryCreationError(null);
+                      setIsAddCategoryModalOpen(true);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md"
+                  >
+                    <Plus className="w-4 h-4 text-indigo-400" />
+                    <span>+ Přidat vlastní kategorii</span>
+                  </button>
+
+                  <button
+                    id="btn-save-modules"
+                    onClick={handleSaveSettings}
+                    disabled={isSaving}
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition-all shadow-md cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Uložit změny</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(Object.keys(formData.modules) as SubjectId[]).map((sId) => {
                   const conf = formData.modules[sId];
+                  const isCustom = Boolean(conf.isCustom || !['math', 'czech', 'geography', 'science', 'english'].includes(sId));
                   return (
                     <div
                       key={sId}
@@ -624,35 +1089,54 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2.5 rounded-xl bg-slate-800">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2.5 rounded-xl bg-slate-800 shrink-0">
                             {getSubjectIcon(sId)}
                           </div>
-                          <div>
-                            <h4 className="font-bold text-white text-sm">{conf.name}</h4>
-                            <p className="text-xs text-slate-400">{conf.description}</p>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-white text-sm truncate">{conf.name}</h4>
+                              {isCustom && (
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-semibold shrink-0">
+                                  Vlastní kategorie
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 truncate">{conf.description}</p>
                           </div>
                         </div>
 
-                        {/* Toggle switch */}
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={conf.enabled}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setFormData((prev) => ({
-                                ...prev,
-                                modules: {
-                                  ...prev.modules,
-                                  [sId]: { ...conf, enabled: checked },
-                                },
-                              }));
-                            }}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                        </label>
+                        {/* Controls: toggle & delete for custom */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isCustom && (
+                            <button
+                              id={`btn-delete-cat-${sId}`}
+                              onClick={() => handleDeleteCustomCategory(sId)}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                              title="Smazat tuto kategorii"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={conf.enabled}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  modules: {
+                                    ...prev.modules,
+                                    [sId]: { ...conf, enabled: checked },
+                                  },
+                                }));
+                              }}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                          </label>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-800/80 text-xs">
@@ -701,9 +1185,269 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                           />
                         </div>
                       </div>
+
+                      {/* Quick AI generation button for this category */}
+                      <div className="mt-3 pt-2.5 border-t border-slate-800/50 flex justify-end">
+                        <button
+                          id={`btn-ai-gen-cat-${sId}`}
+                          onClick={() => {
+                            setAiSubject(sId);
+                            setAiGrade(conf.grade || 3);
+                            const generatorElem = document.getElementById('gemini-ai-generator-card');
+                            if (generatorElem) {
+                              generatorElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                          }}
+                          className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 transition-colors py-0.5 px-1.5 rounded hover:bg-indigo-500/10 cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3 text-indigo-400" />
+                          <span>Vygenerovat otázky pro tento předmět přes AI</span>
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
+
+                {/* Add new category dashed card */}
+                <button
+                  id="btn-add-custom-category-card"
+                  onClick={() => {
+                    setCategoryCreationError(null);
+                    setIsAddCategoryModalOpen(true);
+                  }}
+                  className="p-5 rounded-2xl border-2 border-dashed border-slate-800 hover:border-indigo-500/50 hover:bg-slate-900/40 transition-all flex flex-col items-center justify-center text-center gap-2 group min-h-[160px] cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-slate-800 group-hover:bg-indigo-500/20 text-slate-400 group-hover:text-indigo-400 flex items-center justify-center transition-colors">
+                    <Plus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors block">
+                      + Přidat vlastní výukovou kategorii
+                    </span>
+                    <span className="text-xs text-slate-500 block mt-0.5">
+                      Gemini AI automaticky sestaví didaktické otázky podle názvu kategorie
+                    </span>
+                  </div>
+                </button>
+              </div>
+
+              {/* GEMINI AI QUESTIONS GENERATOR */}
+              <div
+                id="gemini-ai-generator-card"
+                className="bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-950 p-6 rounded-2xl border border-indigo-500/30 shadow-lg mb-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <span>Gemini AI – Inteligentní generátor úloh</span>
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Generujte neomezeně nové didaktické otázky na míru zadané kategorii, ročníku a látce.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {aiStatus?.hasApiKey ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Gemini AI připraveno</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>Klíč GEMINI_API_KEY neaktivní</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Generator controls */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Předmět / Kategorie:</label>
+                    <select
+                      id="select-ai-subject"
+                      value={aiSubject}
+                      onChange={(e) => setAiSubject(e.target.value as SubjectId)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-indigo-500/30 text-white text-xs focus:ring-2 focus:ring-indigo-500/50"
+                    >
+                      <optgroup label="Základní předměty">
+                        <option value="math">Matematika</option>
+                        <option value="czech">Český jazyk</option>
+                        <option value="geography">Vlastivěda</option>
+                        <option value="science">Přírodověda</option>
+                        <option value="english">Anglický jazyk</option>
+                      </optgroup>
+                      {Object.entries(formData.modules)
+                        .filter(([k]) => !['math', 'czech', 'geography', 'science', 'english'].includes(k))
+                        .length > 0 && (
+                        <optgroup label="Vaše vlastní kategorie">
+                          {(Object.entries(formData.modules) as [string, SubjectModuleConfig][])
+                            .filter(([k]) => !['math', 'czech', 'geography', 'science', 'english'].includes(k))
+                            .map(([k, mod]) => (
+                              <option key={k} value={k}>
+                                {mod.name}
+                              </option>
+                            ))}
+                        </optgroup>
+                      )}
+                      <optgroup label="Nová kategorie">
+                        <option value="__new_category__">+ Zadat novou kategorii a vygenerovat otázky...</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Cílový ročník:</label>
+                    <select
+                      value={aiGrade}
+                      onChange={(e) => setAiGrade(Number(e.target.value) as GradeLevel)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-indigo-500/30 text-white text-xs focus:ring-2 focus:ring-indigo-500/50"
+                    >
+                      <option value={1}>1. třída ZŠ</option>
+                      <option value={2}>2. třída ZŠ</option>
+                      <option value={3}>3. třída ZŠ</option>
+                      <option value={4}>4. třída ZŠ</option>
+                      <option value={5}>5. třída ZŠ</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">Počet nových otázek:</label>
+                    <select
+                      value={aiCount}
+                      onChange={(e) => setAiCount(Number(e.target.value))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-indigo-500/30 text-white text-xs focus:ring-2 focus:ring-indigo-500/50"
+                    >
+                      <option value={3}>3 nové úlohy</option>
+                      <option value={5}>5 nových úloh</option>
+                      <option value={8}>8 nových úloh</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Inline New Category Creator if __new_category__ is selected */}
+                {aiSubject === '__new_category__' && (
+                  <div className="p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/50 space-y-3 mb-4 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-300">
+                      <FolderPlus className="w-4 h-4 text-indigo-400" />
+                      <span>Nastavení nové kategorie, pro kterou AI vymyslí otázky</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-300 mb-1 font-medium">
+                          Název kategorie <span className="text-rose-400">*</span>:
+                        </label>
+                        <input
+                          type="text"
+                          value={aiNewCatName}
+                          onChange={(e) => setAiNewCatName(e.target.value)}
+                          placeholder="Např. Dějepis, Dopravní výchova, Němčina, Finanční gramotnost, Vesmír..."
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-indigo-500/40 text-white text-xs placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-300 mb-1 font-medium">
+                          Ikona kategorie:
+                        </label>
+                        <select
+                          value={aiNewCatIcon}
+                          onChange={(e) => setAiNewCatIcon(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-indigo-500/40 text-white text-xs"
+                        >
+                          {CATEGORY_ICONS.map((ico) => (
+                            <option key={ico.id} value={ico.id}>
+                              {ico.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-300 mb-1 font-medium">
+                        Bližší specifikace nebo popis pro AI (volitelné):
+                      </label>
+                      <input
+                        type="text"
+                        value={aiNewCatDesc}
+                        onChange={(e) => setAiNewCatDesc(e.target.value)}
+                        placeholder="Např. Otázky na dopravní značky a bezpečnost cyklistů; nebo české pověsti a významní panovníci..."
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-indigo-500/40 text-white text-xs placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Konkrétní probírané téma nebo látka (volitelné):
+                  </label>
+                  <input
+                    type="text"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                    placeholder={
+                      aiSubject === '__new_category__'
+                        ? 'Konkrétní okruh učiva, např. Doba Karla IV., orientace na mapě, bezpečné chování...'
+                        : 'Např. Vyjmenovaná slova po B a L, násobilka 7 a 8, zvířata v lese, krajská města...'
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-indigo-500/30 text-white text-xs focus:ring-2 focus:ring-indigo-500/50 placeholder:text-slate-500"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Pokud pole necháte prázdné, Gemini vygeneruje pestrý mix otázek odpovídající zadané kategorii a ročníku.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    id="btn-trigger-gemini-generate"
+                    onClick={handleGenerateAiQuestions}
+                    disabled={isAiGenerating}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-indigo-900/30 disabled:opacity-50 transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Sparkles className={`w-4 h-4 ${isAiGenerating ? 'animate-spin' : ''}`} />
+                    <span>
+                      {isAiGenerating
+                        ? 'Gemini AI generuje didaktické úlohy...'
+                        : aiSubject === '__new_category__'
+                        ? '✨ Vytvořit kategorii & vygenerovat úlohy pomocí AI'
+                        : '✨ Vygenerovat úlohy pomocí Gemini AI'}
+                    </span>
+                  </button>
+
+                  <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formData.autoGenerateWithAi)}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, autoGenerateWithAi: e.target.checked }))}
+                      className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900"
+                    />
+                    <span>Automaticky doplňovat úlohy přes AI</span>
+                  </label>
+                </div>
+
+                {/* Status Notice */}
+                {aiResultNotice && (
+                  <div
+                    className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                      aiResultNotice.error
+                        ? 'bg-rose-950/40 border-rose-800/50 text-rose-300'
+                        : 'bg-emerald-950/40 border-emerald-800/50 text-emerald-300'
+                    }`}
+                  >
+                    {aiResultNotice.error ? (
+                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    )}
+                    <span>{aiResultNotice.text}</span>
+                  </div>
+                )}
               </div>
 
               {/* CUSTOM QUESTIONS CREATOR */}
@@ -718,17 +1462,17 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs text-slate-400 mb-1">Předmět:</label>
+                    <label className="block text-xs text-slate-400 mb-1">Předmět / Kategorie:</label>
                     <select
                       value={newQuestionSubject}
                       onChange={(e) => setNewQuestionSubject(e.target.value as SubjectId)}
                       className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs"
                     >
-                      <option value="math">Matematika</option>
-                      <option value="czech">Český jazyk</option>
-                      <option value="geography">Vlastivěda</option>
-                      <option value="science">Přírodověda</option>
-                      <option value="english">Anglický jazyk</option>
+                      {(Object.entries(formData.modules) as [string, SubjectModuleConfig][]).map(([sKey, conf]) => (
+                        <option key={sKey} value={sKey}>
+                          {conf.name} {conf.isCustom ? '(Vlastní)' : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -835,8 +1579,16 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                           <div className="flex items-center gap-2">
                             {getSubjectIcon(q.subjectId)}
                             <div>
-                              <span className="font-semibold text-white block">{q.question}</span>
-                              <span className="text-slate-400 text-[11px]">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-semibold text-white">{q.question}</span>
+                                {q.id.startsWith('ai-') && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-semibold border border-indigo-500/30">
+                                    <Sparkles className="w-2.5 h-2.5" />
+                                    <span>Gemini AI</span>
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-slate-400 text-[11px] block mt-0.5">
                                 Odpověď: <strong className="text-emerald-300">{q.correctAnswer}</strong> ({q.grade}. třída)
                               </span>
                             </div>
@@ -844,7 +1596,7 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                           <button
                             id={`btn-delete-q-${q.id}`}
                             onClick={() => handleDeleteCustomQuestion(q.id)}
-                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/20 transition-colors"
+                            className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/20 transition-colors shrink-0"
                             title="Smazat otázku"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1244,6 +1996,40 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
                 </div>
               </div>
 
+              {/* HIGHLIGHT: Windows System Agent */}
+              <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-indigo-950/40 border border-emerald-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4" />
+                    DOPORUČENÉ ŘEŠENÍ: Windows Systémový Agent
+                  </span>
+                  <h4 className="text-base font-bold text-white">
+                    Automatický start po přihlášení a nucené ukončování her
+                  </h4>
+                  <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                    Nainstalujte systémového agenta na dětské PC. Běží skrytě na pozadí, automaticky po zapnutí/přihlášení do Windows ukončuje hry (Minecraft, Roblox, Steam, Epic) a drží Kiosk s úkoly na popředí.
+                  </p>
+                </div>
+                <div className="flex sm:flex-col gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('agent')}
+                    className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md"
+                  >
+                    <Cpu className="w-4 h-4" />
+                    <span>Otevřít správu agenta</span>
+                  </button>
+                  <a
+                    href="/api/agent/download/installer"
+                    download="Instalovat-Agenta-Windows.bat"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-md"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Stáhnout instalátor</span>
+                  </a>
+                </div>
+              </div>
+
               {/* Kiosk Mode Enforcer & Windows/Linux Autostart Scripts (Requirement: aplikace bude vzdy na popredi) */}
               <div className="bg-slate-950/70 p-6 rounded-2xl border border-slate-800 space-y-4">
                 <div className="flex items-start justify-between gap-4">
@@ -1341,6 +2127,184 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           )}
         </div>
       </div>
+
+      {/* MODAL: CREATE CUSTOM CATEGORY */}
+      {isAddCategoryModalOpen && (
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden my-auto p-6 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  <FolderPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Přidat vlastní výukovou kategorii</h3>
+                  <p className="text-xs text-slate-400">Vytvořte libovolný nový předmět s podporou AI generování</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddCategoryModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {categoryCreationError && (
+              <div className="p-3 rounded-xl bg-rose-950/50 border border-rose-800/60 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{categoryCreationError}</span>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Název kategorie <span className="text-rose-400">*</span>:
+                </label>
+                <input
+                  type="text"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="Např. Dějepis, Dopravní výchova, Němčina, Finanční gramotnost, Přírodověda II..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Popis nebo zaměření předmětu (pro AI i dítě):
+                </label>
+                <input
+                  type="text"
+                  value={newCatDesc}
+                  onChange={(e) => setNewCatDesc(e.target.value)}
+                  placeholder="Např. Významné české dějiny, památky, bezpečné chování v dopravě..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Cílový ročník:</label>
+                  <select
+                    value={newCatGrade}
+                    onChange={(e) => setNewCatGrade(Number(e.target.value) as GradeLevel)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-medium"
+                  >
+                    <option value={1}>1. třída ZŠ</option>
+                    <option value={2}>2. třída ZŠ</option>
+                    <option value={3}>3. třída ZŠ</option>
+                    <option value={4}>4. třída ZŠ</option>
+                    <option value={5}>5. třída ZŠ</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Počet nutných úloh:</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={newCatRequired}
+                    onChange={(e) => setNewCatRequired(Math.max(1, Number(e.target.value)))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Icon selection */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Vyberte ikonu předmětu:</label>
+                <div className="grid grid-cols-5 gap-2 max-h-36 overflow-y-auto p-2 bg-slate-950/70 border border-slate-800 rounded-xl">
+                  {CATEGORY_ICONS.map((ico) => {
+                    const isSelected = newCatIcon === ico.id;
+                    return (
+                      <button
+                        type="button"
+                        key={ico.id}
+                        onClick={() => setNewCatIcon(ico.id)}
+                        className={`p-2 rounded-lg flex flex-col items-center gap-1 transition-all text-center cursor-pointer ${
+                          isSelected
+                            ? 'bg-indigo-600 text-white shadow-md'
+                            : 'bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`}
+                        title={ico.label}
+                      >
+                        {renderSubjectOrCategoryIcon('', ico.id, 'w-4 h-4')}
+                        <span className="text-[9px] truncate max-w-full">{ico.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* AI auto generation option */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-indigo-950/60 to-purple-950/40 border border-indigo-500/30 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newCatGenerateAi}
+                    onChange={(e) => setNewCatGenerateAi(e.target.checked)}
+                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-900"
+                  />
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Rovnou vygenerovat otázky pomocí Gemini AI</span>
+                  </span>
+                </label>
+
+                {newCatGenerateAi && (
+                  <div className="pl-6 pt-1 flex items-center justify-between text-xs text-slate-300">
+                    <span>Počet úloh k vygenerování:</span>
+                    <select
+                      value={newCatAiCount}
+                      onChange={(e) => setNewCatAiCount(Number(e.target.value))}
+                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-indigo-500/40 text-white text-xs"
+                    >
+                      <option value={3}>3 úlohy</option>
+                      <option value={4}>4 úlohy</option>
+                      <option value={6}>6 úloh</option>
+                      <option value={8}>8 úloh</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsAddCategoryModalOpen(false)}
+                disabled={isCreatingCategory}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Zrušit
+              </button>
+
+              <button
+                type="button"
+                id="btn-confirm-create-category"
+                onClick={handleCreateCategoryDirectly}
+                disabled={isCreatingCategory || !newCatName.trim()}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {isCreatingCategory ? (
+                  <>
+                    <RotateCcw className="w-4 h-4 animate-spin" />
+                    <span>Vytvářím kategorii a generuji úlohy...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    <span>Vytvořit kategorii</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

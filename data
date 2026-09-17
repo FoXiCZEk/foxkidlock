@@ -1,0 +1,283 @@
+{
+  "parentSettings": {
+    "parentPin": "1234",
+    "childName": "Filip",
+    "modules": {
+      "math": {
+        "id": "math",
+        "name": "Matematika",
+        "description": "Počítání, násobilka, geometrie a logické hádanky",
+        "icon": "Calculator",
+        "color": "emerald",
+        "enabled": true,
+        "requiredQuestionsCount": 4,
+        "grade": 3
+      },
+      "czech": {
+        "id": "czech",
+        "name": "Český jazyk",
+        "description": "Vyjmenovaná slova, pravopis i/y a slovní druhy",
+        "icon": "BookOpen",
+        "color": "sky",
+        "enabled": true,
+        "requiredQuestionsCount": 4,
+        "grade": 3
+      },
+      "geography": {
+        "id": "geography",
+        "name": "Vlastivěda",
+        "description": "Města ČR, řeky, pohoří a česká historie",
+        "icon": "Compass",
+        "color": "amber",
+        "enabled": true,
+        "requiredQuestionsCount": 3,
+        "grade": 4
+      },
+      "science": {
+        "id": "science",
+        "name": "Přírodověda",
+        "description": "Živá i neživá příroda, zvířata a vesmír",
+        "icon": "Leaf",
+        "color": "teal",
+        "enabled": false,
+        "requiredQuestionsCount": 3,
+        "grade": 3
+      },
+      "english": {
+        "id": "english",
+        "name": "Anglický jazyk",
+        "description": "Slovní zásoba, zvířátka, barvy a jednoduché věty",
+        "icon": "Languages",
+        "color": "indigo",
+        "enabled": false,
+        "requiredQuestionsCount": 3,
+        "grade": 3
+      },
+      "custom_dopravni_vychova_mtu46683": {
+        "id": "custom_dopravni_vychova_mtu46683",
+        "name": "Dopravní výchova",
+        "description": "Značky a bezpečnost cyklistů",
+        "icon": "Car",
+        "color": "sky",
+        "enabled": true,
+        "requiredQuestionsCount": 3,
+        "grade": 3,
+        "isCustom": true
+      }
+    },
+    "dailyPlaytimeMinutes": 45,
+    "requireAccuracyPercent": 75,
+    "strictKioskMode": true,
+    "allowedApps": [
+      {
+        "id": "minecraft",
+        "name": "Minecraft",
+        "icon": "Pickaxe",
+        "category": "game",
+        "command": "minecraft.exe",
+        "url": "https://classic.minecraft.net/",
+        "description": "Populární stavitelská kostičková hra",
+        "enabled": true
+      },
+      {
+        "id": "roblox",
+        "name": "Roblox",
+        "icon": "Gamepad2",
+        "category": "game",
+        "command": "RobloxPlayerLauncher.exe",
+        "url": "https://www.roblox.com/",
+        "description": "Platforma s tisíci minihrami pro více hráčů",
+        "enabled": true
+      },
+      {
+        "id": "scratch",
+        "name": "Scratch Studio",
+        "icon": "Code2",
+        "category": "creative",
+        "url": "https://scratch.mit.edu/",
+        "description": "Tvorba vlastních her a animací v blokovém kódu",
+        "enabled": true
+      },
+      {
+        "id": "youtube_kids",
+        "name": "YouTube Kids",
+        "icon": "PlayCircle",
+        "category": "video",
+        "url": "https://www.youtubekids.com/",
+        "description": "Bezpečné videoportály a pohádky pro děti",
+        "enabled": true
+      },
+      {
+        "id": "chess",
+        "name": "Šachy Online",
+        "icon": "Crown",
+        "category": "learning",
+        "url": "https://www.chess.com/play/computer",
+        "description": "Trénink strategického myšlení proti robotovi",
+        "enabled": true
+      },
+      {
+        "id": "steam",
+        "name": "Steam Hry",
+        "icon": "Flame",
+        "category": "game",
+        "command": "steam://open/games",
+        "description": "Knihovna her na počítači",
+        "enabled": false
+      }
+    ],
+    "customQuestions": [
+      {
+        "id": "ai-1788958522799-0-d7ts",
+        "subjectId": "math",
+        "grade": 3,
+        "question": "Vypočítej příklad: 7 * 8 =",
+        "type": "number",
+        "correctAnswer": "56",
+        "hint": "Zkus si násobilku 7 postupně přičítat, nebo si vzpomeň, kolik je 7 * 7 a přidej jednu sedmičku.",
+        "explanation": "Skvělá práce! Sedmkrát osm je padesát šest. Pokud si nejsi jistý, můžeš si vždy představit 7 řad po 8 kostičkách."
+      },
+      {
+        "id": "ai-1788958522799-1-flsi",
+        "subjectId": "math",
+        "grade": 3,
+        "question": "Ve školní jídelně připravili 7 táců, na každém je 9 buchet. Kolik je to buchet celkem?",
+        "type": "multiple_choice",
+        "correctAnswer": "63",
+        "hint": "Potřebuješ vypočítat příklad 7 * 9. Pamatuj si, že 7 * 10 je 70 a od toho stačí odečíst jednu sedmičku.",
+        "explanation": "Výborně! 7 * 9 je 63. Kdybys měl 7 * 10, bylo by to 70, a když odečteme jednu sedmičku, dostaneme přesně 63 buchet."
+      },
+      {
+        "id": "ai-1788959303891-0-m9jy",
+        "subjectId": "custom_dopravni_vychova_mtu46683",
+        "grade": 3,
+        "question": "Když jedeš na kole a potřebuješ se dostat na druhou stranu silnice po přechodu pro chodce, jak se správně zachováš?",
+        "type": "multiple_choice",
+        "options": [
+          "Z kola sesedneš a bezpečně ho převedeš pěšky.",
+          "Přechod co nejrychleji přejedeš na kole.",
+          "Zazvoníš na zvonek a rychle přejedeš.",
+          "Můžeš jet na kole, ale musíš jet hodně pomalu."
+        ],
+        "correctAnswer": "Z kola sesedneš a bezpečně ho převedeš pěšky.",
+        "hint": "Přechod pro chodce je určený především pro ty, kteří jdou po svých.",
+        "explanation": "Skvěle! Přechod pro chodce slouží pěším. Jako cyklista musíš z kola před přechodem sesednout a převést ho pěšky, aby tě řidiči včas a bezpečně viděli."
+      },
+      {
+        "id": "ai-1788959303891-1-nxn8",
+        "subjectId": "custom_dopravni_vychova_mtu46683",
+        "grade": 3,
+        "question": "Jak se jedním slovem lidově říká přechodu pro chodce podle pruhovaného afrického zvířete?",
+        "type": "text",
+        "correctAnswer": "zebra",
+        "hint": "Toto zvíře má typické černé a bílé pruhy a žije v africké savaně.",
+        "explanation": "Přesně tak! Bílé pruhy vyznačené na tmavém asfaltu připomínají srst zebry, a proto přechodu pro chodce všichni běžně říkáme zebra."
+      }
+    ]
+  },
+  "stats": {
+    "totalAnswered": 12,
+    "totalCorrect": 10,
+    "accuracyPercent": 83,
+    "subjectBreakdown": {
+      "math": {
+        "answered": 5,
+        "correct": 4,
+        "accuracy": 80
+      },
+      "czech": {
+        "answered": 4,
+        "correct": 3,
+        "accuracy": 75
+      },
+      "geography": {
+        "answered": 3,
+        "correct": 3,
+        "accuracy": 100
+      },
+      "science": {
+        "answered": 0,
+        "correct": 0,
+        "accuracy": 0
+      },
+      "english": {
+        "answered": 0,
+        "correct": 0,
+        "accuracy": 0
+      }
+    },
+    "recentAttempts": [
+      {
+        "id": "demo-1",
+        "timestamp": 1788951301360,
+        "subjectId": "math",
+        "questionText": "Kolik je 7 × 8?",
+        "userAnswer": "56",
+        "correctAnswer": "56",
+        "isCorrect": true,
+        "timeSpentSeconds": 14
+      },
+      {
+        "id": "demo-2",
+        "timestamp": 1788954901360,
+        "subjectId": "czech",
+        "questionText": "Které slovo je vyjmenované po P?",
+        "userAnswer": "pýcha",
+        "correctAnswer": "pýcha",
+        "isCorrect": true,
+        "timeSpentSeconds": 9
+      },
+      {
+        "id": "demo-3",
+        "timestamp": 1788956701360,
+        "subjectId": "czech",
+        "questionText": "Urči slovní druh slova \"RYCHLE\":",
+        "userAnswer": "Přídavné jméno",
+        "correctAnswer": "Příslovce",
+        "isCorrect": false,
+        "timeSpentSeconds": 18
+      }
+    ]
+  },
+  "childState": {
+    "pcId": "Detske-PC-1",
+    "status": "locked_studying",
+    "currentSubjectId": "math",
+    "moduleProgress": {
+      "math": {
+        "completed": 0,
+        "required": 4,
+        "correctInSession": 0
+      },
+      "czech": {
+        "completed": 0,
+        "required": 4,
+        "correctInSession": 0
+      },
+      "geography": {
+        "completed": 0,
+        "required": 3,
+        "correctInSession": 0
+      },
+      "science": {
+        "completed": 0,
+        "required": 3,
+        "correctInSession": 0
+      },
+      "english": {
+        "completed": 0,
+        "required": 3,
+        "correctInSession": 0
+      },
+      "custom_dopravni_vychova_mtu46683": {
+        "completed": 0,
+        "required": 3,
+        "correctInSession": 0
+      }
+    },
+    "playtimeRemainingSeconds": 2700,
+    "lastHeartbeat": 1788959301000,
+    "activeMessageFromParent": null,
+    "isKioskActive": false
+  }
+}

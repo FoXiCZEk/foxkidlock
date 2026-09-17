@@ -39,6 +39,7 @@ import {
 } from '../types';
 import { DEFAULT_QUESTIONS } from '../data/defaultQuestions';
 import { soundFx } from '../utils/audio';
+import { renderSubjectOrCategoryIcon } from '../utils/subjectIcons';
 
 interface ChildKioskViewProps {
   settings: ParentSettings;
@@ -288,20 +289,8 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
 
   // Icon helper
   const renderSubjectIcon = (id: SubjectId) => {
-    switch (id) {
-      case 'math':
-        return <Calculator className="w-5 h-5" />;
-      case 'czech':
-        return <BookOpen className="w-5 h-5" />;
-      case 'geography':
-        return <Compass className="w-5 h-5" />;
-      case 'science':
-        return <Leaf className="w-5 h-5" />;
-      case 'english':
-        return <Languages className="w-5 h-5" />;
-      default:
-        return <BookOpen className="w-5 h-5" />;
-    }
+    const mod = settings.modules[id];
+    return renderSubjectOrCategoryIcon(id, mod?.icon, 'w-5 h-5');
   };
 
   // Format seconds to mm:ss
@@ -779,9 +768,24 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
                   )}
                 </div>
               ) : (
-                <div className="text-center py-12 text-slate-400">
-                  <BookOpen className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-                  <p>V tomto modulu nejsou žádné další úlohy.</p>
+                <div className="text-center py-12 px-4 text-slate-400">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-amber-400 shadow-inner">
+                    {renderSubjectIcon(activeSubject)}
+                  </div>
+                  <h3 className="text-base font-bold text-white mb-1">
+                    V této kategorii ({subjectConfig?.name || 'Předmět'}) zatím nejsou připraveny úlohy
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
+                    Rodič může v rodičovské správě kdykoliv nechat Gemini AI nagenerovat nové otázky na míru pro tuto kategorii.
+                  </p>
+                  <button
+                    id="btn-open-parent-empty-category"
+                    onClick={onOpenParentPanel}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold inline-flex items-center gap-2 border border-slate-700 transition-colors"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    <span>Otevřít rodičovskou správu</span>
+                  </button>
                 </div>
               )}
             </div>
