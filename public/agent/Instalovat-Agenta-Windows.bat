@@ -32,6 +32,9 @@ if exist "%SOURCE_DIR%Odinstalovat-Agenta-Windows.bat" (
 if exist "%SOURCE_DIR%README-AGENT.txt" (
     copy /Y "%SOURCE_DIR%README-AGENT.txt" "%INSTALL_DIR%\README-AGENT.txt" >nul
 )
+if exist "%SOURCE_DIR%NAVOD-K-POUZITI.txt" (
+    copy /Y "%SOURCE_DIR%NAVOD-K-POUZITI.txt" "%INSTALL_DIR%\NAVOD-K-POUZITI.txt" >nul
+)
 if exist "%SOURCE_DIR%server_url.txt" (
     copy /Y "%SOURCE_DIR%server_url.txt" "%INSTALL_DIR%\server_url.txt" >nul
 )

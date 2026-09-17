@@ -1,0 +1,29 @@
+==============================================================================
+   RODIČOVSKÝ ZÁMEK PC - INSTALAČNÍ BALÍČEK PRO WINDOWS (DĚTSKÝ POČÍTAČ)
+==============================================================================
+
+Tento balíček obsahuje kompletního systémového agenta pro bezpečný dohled nad PC:
+- Běží skrytě a ticho na pozadí stanice bez rušivých oken.
+- Při spuštění a přihlášení do Windows zkontroluje stav zámku.
+- Pokud je PC zamčeno, ukončí všechny hry (Minecraft, Roblox, Steam, Epic, Fortnite atd.).
+- Udržuje celoobrazovkový Kiosk s výukovými otázkami na popředí.
+- Blokuje nepovolené weby (YouTube, Netflix, TikTok, Twitch...) na úrovni DNS i prohlížeče.
+- Umožňuje rodiči dálkově kdykoli z mobilu odemknout PC, přeskočit otázky či přidat čas.
+
+------------------------------------------------------------------------------
+JAK NAINSTALOVAT NA DĚTSKÝ POČÍTAČ:
+------------------------------------------------------------------------------
+1. Rozbalte celý tento ZIP archiv na dětském počítači do libovolné složky.
+2. (Volitelné) Pokud chcete nastavit vlastní server, otevřete soubor "server_url.txt"
+   a vložte do něj URL adresu vašeho serveru (např. https://moje-domena.cz).
+3. Klikněte pravým tlačítkem na "Instalovat-Agenta-Windows.bat" a zvolte
+   "Spustit jako správce" (pro plnou ochranu DNS hosts souboru) nebo spusťte běžně.
+4. Hotovo! Agent je nainstalován a ihned běží. V rodičovském panelu uvidíte stav ONLINE.
+
+------------------------------------------------------------------------------
+JAK ODINSTALOVAT:
+------------------------------------------------------------------------------
+Kdykoliv spusťte přiložený soubor:
+   Odinstalovat-Agenta-Windows.bat
+Tím se ukončí běžící procesy a odebere se automatické spouštění po startu Windows.
+==============================================================================
