@@ -203,29 +203,93 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
     }
   }, [childState.status]);
 
-  // Heartbeat & focus watcher for kiosk mode
+  // Heartbeat & focus watcher for kiosk mode (with debounce & false-positive protection)
   useEffect(() => {
-    const handleBlur = () => {
-      if (settings.strictKioskMode && childState.status === 'locked_studying') {
-        setIsCheatWarningOpen(true);
-        if (soundEnabled) soundFx.playWarning();
+    let blurCheckTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const clearBlurTimer = () => {
+      if (blurCheckTimer) {
+        clearTimeout(blurCheckTimer);
+        blurCheckTimer = null;
       }
     };
 
-    const handleFocus = () => {
-      // Returned to window
+    const handleBlur = () => {
+      // If not in strict mode or not studying, no warning needed
+      if (!settings.strictKioskMode || childState.status !== 'locked_studying') return;
+
+      clearBlurTimer();
+
+      // Debounce blur verification (800ms) to avoid false triggers caused by:
+      // 1) Input field focus, browser autofill/autocomplete suggestions popup ("našeptávač")
+      // 2) Moving cursor or clicking within an iframe or near edge
+      // 3) Context menus, right-click, or transient UI interactions
+      blurCheckTimer = setTimeout(() => {
+        // If document regained focus in the meantime, ignore
+        if (typeof document.hasFocus === 'function' && document.hasFocus()) return;
+
+        // If user is currently focused on an input, textarea, or button, they are actively answering!
+        const activeEl = document.activeElement;
+        if (
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'BUTTON' ||
+            activeEl.tagName === 'SELECT')
+        ) {
+          return;
+        }
+
+        // If page is still visible on screen (not minimized or switched away)
+        if (document.visibilityState === 'visible') {
+          // If in an iframe (e.g. AI Studio preview environment), parent frame interactions blur the iframe
+          const isInIframe = window.self !== window.top;
+          if (isInIframe) {
+            return;
+          }
+        }
+
+        // Only trigger anti-cheat overlay if the window is truly hidden or lost focus to an external app
+        if (document.visibilityState === 'hidden' || (typeof document.hasFocus === 'function' && !document.hasFocus())) {
+          setIsCheatWarningOpen(true);
+          if (soundEnabled) soundFx.playWarning();
+        }
+      }, 800);
     };
 
+    const handleFocus = () => {
+      clearBlurTimer();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        clearBlurTimer();
+      } else if (document.visibilityState === 'hidden') {
+        if (settings.strictKioskMode && childState.status === 'locked_studying') {
+          setIsCheatWarningOpen(true);
+          if (soundEnabled) soundFx.playWarning();
+        }
+      }
+    };
+
+    const handleUserInteraction = () => {
+      clearBlurTimer();
+    };
+
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pointerdown', handleUserInteraction);
+    window.addEventListener('focusin', handleUserInteraction);
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      clearBlurTimer();
       // Prevent escape or common shortcuts from accidentally quitting kiosk
       if (e.key === 'F11') {
         e.preventDefault();
         toggleFullscreen();
       }
     };
-
-    window.addEventListener('blur', handleBlur);
-    window.addEventListener('focus', handleFocus);
     window.addEventListener('keydown', handleKeyDown);
 
     const hbInterval = setInterval(() => {
@@ -233,8 +297,12 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
     }, 4000);
 
     return () => {
+      clearBlurTimer();
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pointerdown', handleUserInteraction);
+      window.removeEventListener('focusin', handleUserInteraction);
       window.removeEventListener('keydown', handleKeyDown);
       clearInterval(hbInterval);
     };
@@ -728,22 +796,44 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
                   ) : (
                     <div className="space-y-2">
                       <label className="text-xs text-slate-400 font-medium">Napiš svou odpověď:</label>
-                      <div className="flex gap-3">
+                      <form
+                        autoComplete="off"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (feedback.status === 'idle') {
+                            handleCheckAnswer();
+                          }
+                        }}
+                        className="flex gap-3"
+                      >
                         <input
                           id="input-text-answer"
+                          name={`answer_${activeQuestion.id}`}
                           type={activeQuestion.type === 'number' ? 'number' : 'text'}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="off"
+                          spellCheck={false}
+                          data-lpignore="true"
+                          data-1p-ignore="true"
+                          data-form-type="other"
                           value={textInput}
                           disabled={feedback.status !== 'idle'}
                           onChange={(e) => setTextInput(e.target.value)}
+                          onFocus={() => {
+                            // User is actively answering, dismiss any false-positive warning
+                            setIsCheatWarningOpen(false);
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && feedback.status === 'idle') {
+                              e.preventDefault();
                               handleCheckAnswer();
                             }
                           }}
                           placeholder={activeQuestion.type === 'number' ? 'Zadej číslo...' : 'Zadej odpověď...'}
                           className="flex-1 px-4 py-3.5 rounded-xl bg-slate-950/80 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-medium"
                         />
-                      </div>
+                      </form>
                     </div>
                   )}
 
