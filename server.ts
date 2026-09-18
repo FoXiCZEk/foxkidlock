@@ -1016,6 +1016,7 @@ Požadavky na úlohy:
     if (allFinished) {
       childState.status = 'unlocked_playing';
       childState.playtimeRemainingSeconds = parentSettings.dailyPlaytimeMinutes * 60;
+      pendingCommands.push({ type: 'close_kiosk', timestamp: Date.now() });
     }
 
     persistData();
@@ -1043,6 +1044,7 @@ Požadavky na úlohy:
       childState.status = 'unlocked_playing';
       childState.playtimeRemainingSeconds = parentSettings.dailyPlaytimeMinutes * 60;
       pendingCommands.push({ type: 'skip_tasks', timestamp: Date.now() });
+      pendingCommands.push({ type: 'close_kiosk', timestamp: Date.now() });
     } else if (command === 'force_lock') {
       childState.status = 'locked_studying';
       pendingCommands.push({ type: 'force_lock', timestamp: Date.now() });
@@ -1066,6 +1068,17 @@ Požadavky na úlohy:
     persistData();
     broadcastState();
     res.json({ success: true, childState });
+  });
+
+  // Explicit Kiosk dismiss endpoint (sent when child or UI requests closing the lock window)
+  app.post('/api/agent/dismiss-kiosk', (req, res) => {
+    if (childState.status === 'unlocked_playing' || childState.status === 'parent_bypass') {
+      pendingCommands.push({ type: 'close_kiosk', timestamp: Date.now() });
+      broadcastState();
+      res.json({ success: true, message: 'Příkaz k zavření Kiosku byl předán agentovi' });
+    } else {
+      res.status(400).json({ success: false, message: 'PC je stále zamčeno úkoly' });
+    }
   });
 
   // Parent settings update (requires PIN)

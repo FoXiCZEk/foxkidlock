@@ -120,7 +120,7 @@ export interface ChildLiveState {
 }
 
 export interface RemoteCommand {
-  type: 'skip_tasks' | 'force_lock' | 'add_playtime' | 'send_message' | 'reset_session';
+  type: 'skip_tasks' | 'force_lock' | 'add_playtime' | 'send_message' | 'reset_session' | 'close_kiosk';
   payload?: {
     minutes?: number;
     message?: string;

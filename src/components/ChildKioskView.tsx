@@ -27,7 +27,10 @@ import {
   Compass,
   Leaf,
   Languages,
-  FileCode2
+  FileCode2,
+  Monitor,
+  LogOut,
+  ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import {
@@ -114,6 +117,34 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
     childState.playtimeRemainingSeconds || settings.dailyPlaytimeMinutes * 60
   );
 
+  // Kiosk auto-close state after task completion
+  const [autoCloseCountdown, setAutoCloseCountdown] = useState<number | null>(null);
+  const [isDismissing, setIsDismissing] = useState(false);
+
+  // Dismiss kiosk and return to desktop
+  const handleDismissKioskWindow = async () => {
+    setIsDismissing(true);
+    try {
+      await fetch('/api/agent/dismiss-kiosk', { method: 'POST' });
+    } catch {
+      // Ignore
+    }
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Ignore
+    }
+
+    try {
+      window.close();
+    } catch {
+      // Ignore
+    }
+  };
+
   // Sync playtime from childState when updated from server/remote
   useEffect(() => {
     if (childState.playtimeRemainingSeconds !== undefined) {
@@ -137,7 +168,7 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
     }
   }, [childState.status]);
 
-  // Trigger celebration confetti when transitioning to unlocked
+  // Trigger celebration confetti and start auto-close countdown when transitioning to unlocked
   useEffect(() => {
     if (childState.status === 'unlocked_playing') {
       soundFx.playCelebration();
@@ -150,6 +181,25 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
       } catch {
         // Ignore
       }
+
+      // Auto close kiosk window after 4 seconds to give child time to see congratulations
+      setAutoCloseCountdown(4);
+      const timer = setInterval(() => {
+        setAutoCloseCountdown((prev) => {
+          if (prev === null) return null;
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleDismissKioskWindow();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    } else {
+      setAutoCloseCountdown(null);
+      setIsDismissing(false);
     }
   }, [childState.status]);
 
@@ -374,6 +424,19 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
             </button>
           )}
 
+          {childState.status === 'unlocked_playing' && (
+            <button
+              id="btn-header-dismiss-kiosk"
+              onClick={handleDismissKioskWindow}
+              disabled={isDismissing}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-md shadow-emerald-500/20 active:scale-95"
+              title="Zavřít zamykací okno a přejít na plochu Windows"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span>Přejít na plochu</span>
+            </button>
+          )}
+
           {/* Discreet Parental unlock / settings button */}
           <button
             id="btn-parent-unlock"
@@ -391,6 +454,41 @@ export const ChildKioskView: React.FC<ChildKioskViewProps> = ({
         {/* CASE A: UNLOCKED - PLAY TIME & APPS LAUNCHER */}
         {childState.status === 'unlocked_playing' ? (
           <div className="bg-slate-900/90 border border-emerald-500/30 rounded-3xl p-6 md:p-10 shadow-2xl backdrop-blur-xl animate-fade-in">
+            {/* Prominent Auto-close & Go-to-Desktop Action Box */}
+            <div className="mb-8 p-5 rounded-2xl bg-gradient-to-r from-emerald-950/70 via-slate-900/90 to-slate-950/90 border border-emerald-500/40 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center gap-4 text-left w-full md:w-auto">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Monitor className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base font-bold text-white">
+                      Zamykací okno se zavírá
+                    </span>
+                    {autoCloseCountdown !== null && autoCloseCountdown > 0 && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-mono font-bold border border-emerald-500/30">
+                        za {autoCloseCountdown} s
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-300 mt-0.5">
+                    Hry jsou odemčeny a agent uvolnil počítač. Můžeš ihned přejít na plochu Windows.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                id="btn-dismiss-kiosk-main"
+                onClick={handleDismissKioskWindow}
+                disabled={isDismissing}
+                className="w-full md:w-auto px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-lg shadow-emerald-500/30 cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Přejít na plochu (Zavřít okno)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-b border-slate-800 pb-8 mb-8">
               <div className="flex items-center gap-5">
                 <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">

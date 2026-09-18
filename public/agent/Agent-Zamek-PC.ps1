@@ -20,7 +20,7 @@ $ErrorActionPreference = 'SilentlyContinue'
 # Výchozí konfigurace serveru (Cloud vs. Lokální)
 $DefaultCloudUrl = "https://ais-pre-q3orgyhhxwbamgxmw2ejcq-853779803326.europe-west2.run.app"
 $LocalUrl = "http://localhost:3000"
-$AgentVersion = "2.3.0"
+$AgentVersion = "2.4.0"
 $Hostname = $env:COMPUTERNAME
 
 # Pokud existuje soubor server_url.txt vedle agenta, načte adresu z něj
@@ -187,16 +187,65 @@ function Enforce-BrowserTabRules {
     }
 }
 
+# Funkce: Získání všech běžících procesů Kiosku (podle vyhrazeného profilu a parametrů)
+function Get-KioskProcesses {
+    try {
+        $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+            $_.CommandLine -like "*kiosk_agent_profile*" -or
+            ($_.CommandLine -like "*--kiosk*" -and $_.CommandLine -like "*mode=child*") -or
+            ($_.CommandLine -like "*kiosk*" -and $_.CommandLine -like "*ais-pre*")
+        }
+        if ($procs) {
+            return @($procs)
+        }
+        return @()
+    } catch {
+        return @()
+    }
+}
+
+# Funkce: Okamžité a čisté zavření Kiosku po splnění úkolů
+function Close-KioskBrowser {
+    try {
+        $kioskProcs = Get-KioskProcesses
+        if ($kioskProcs -and $kioskProcs.Count -gt 0) {
+            Write-Host "[AGENT] PC odemčeno / úkoly splněny: Zavírám Kiosk zamykací okno..." -ForegroundColor Green
+            foreach ($kp in $kioskProcs) {
+                try {
+                    Stop-Process -Id $kp.ProcessId -Force -ErrorAction SilentlyContinue
+                } catch {}
+            }
+            Start-Sleep -Milliseconds 150
+        }
+    } catch {}
+
+    # Pojistka: zavření okna přes klávesovou zkratku Alt+F4 pokud by běželo pod běžným oknem
+    try {
+        $browserProcs = Get-Process -Name chrome, msedge, firefox, opera, brave -ErrorAction SilentlyContinue | Where-Object {
+            $_.MainWindowHandle -ne 0 -and ($_.MainWindowTitle -like "*Rodičovský zámek*" -or $_.MainWindowTitle -like "*Rodicovsky Zamek*")
+        }
+        if ($browserProcs) {
+            $ws = New-Object -ComObject WScript.Shell
+            foreach ($bp in $browserProcs) {
+                try {
+                    if ($ws.AppActivate($bp.Id)) {
+                        Start-Sleep -Milliseconds 50
+                        $ws.SendKeys("%{F4}")
+                    }
+                } catch {}
+            }
+        }
+    } catch {}
+}
+
 # Funkce: Hledání a spuštění prohlížeče v Kiosk režimu
 function Ensure-KioskRunning {
     param([string]$TargetUrl)
 
-    $runningKiosk = Get-Process -Name chrome, msedge -ErrorAction SilentlyContinue | Where-Object {
-        $_.MainWindowHandle -ne 0
-    }
+    $existingKiosks = Get-KioskProcesses
 
-    if (-not $runningKiosk) {
-        Write-Host "[AGENT] Spouštím celoobrazovkový Kiosk zámek..." -ForegroundColor Yellow
+    if (-not $existingKiosks -or $existingKiosks.Count -eq 0) {
+        Write-Host "[AGENT] PC je zamčeno. Spouštím celoobrazovkový Kiosk zámek..." -ForegroundColor Yellow
 
         $kioskUrl = "$TargetUrl/?mode=child"
         $browserExe = $null
@@ -252,10 +301,10 @@ function Ensure-KioskRunning {
 
 function Set-KioskForeground {
     try {
-        $ws = New-Object -ComObject WScript.Shell
-        $proc = Get-Process -Name chrome, msedge -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-        if ($proc) {
-            $ws.AppActivate($proc.Id) | Out-Null
+        $kioskProcs = Get-KioskProcesses
+        if ($kioskProcs -and $kioskProcs.Count -gt 0) {
+            $ws = New-Object -ComObject WScript.Shell
+            $ws.AppActivate($kioskProcs[0].ProcessId) | Out-Null
         }
     } catch {}
 }
@@ -303,7 +352,16 @@ while ($true) {
         $status = $response.status
         $blockedList = if ($response.blockedProcesses) { $response.blockedProcesses } else { $GlobalBlockedProcesses }
 
-        # 2. Blokování webů (YouTube, Netflix, sociální sítě atd.)
+        # 2. Dálkové příkazy od rodičů
+        if ($response.commands) {
+            foreach ($cmd in $response.commands) {
+                if ($cmd.type -eq 'close_kiosk' -or $cmd.type -eq 'skip_tasks') {
+                    Close-KioskBrowser
+                }
+            }
+        }
+
+        # 3. Blokování webů (YouTube, Netflix, sociální sítě atd.)
         if ($response.webFilter) {
             $filterEnabled = [bool]$response.webFilter.enabled
             $filterDomains = @($response.webFilter.domains)
@@ -315,7 +373,7 @@ while ($true) {
             }
         }
 
-        # 3. Kontrola her a zamykací obrazovky
+        # 4. Kontrola her a zamykací obrazovky
         if ($status -eq 'locked_studying' -or $status -eq 'time_expired') {
             $didKill = Kill-BlockedGames -ProcessList $blockedList
             Ensure-KioskRunning -TargetUrl $ServerUrl
@@ -324,6 +382,9 @@ while ($true) {
             if ($didKill) {
                 $script:LastKilledProcessName = ""
             }
+        } elseif ($status -eq 'unlocked_playing' -or $status -eq 'parent_bypass') {
+            # Úkoly jsou splněny! Okamžitě zavřeme Kiosk, uvolníme popředí a zpřístupníme celé PC
+            Close-KioskBrowser
         }
 
     } catch {

@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Verze balíčku (např. v2.3.0)'
+        description: 'Verze balíčku (např. v2.4.0)'
         required: true
-        default: 'v2.3.0'
+        default: 'v2.4.0'
       server_url:
         description: 'Přednastavená URL adresa serveru (volitelné, např. https://moje-domena.cz)'
         required: false
