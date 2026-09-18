@@ -45,6 +45,7 @@ import {
 import { DockerDeployTab } from './DockerDeployTab';
 import { DesktopAgentControl } from './DesktopAgentControl';
 import { WebFilterControl } from './WebFilterControl';
+import { DocumentationTab } from './DocumentationTab';
 import {
   ParentSettings,
   ChildLiveState,
@@ -85,8 +86,8 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
   isRemoteWebMode = false,
   onOpenScriptModal,
 }) => {
-  // Tabs: 'remote' | 'agent' | 'webfilter' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker'
-  const [activeTab, setActiveTab] = useState<'remote' | 'agent' | 'webfilter' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker'>('remote');
+  // Tabs: 'remote' | 'agent' | 'webfilter' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker' | 'docs'
+  const [activeTab, setActiveTab] = useState<'remote' | 'agent' | 'webfilter' | 'modules' | 'apps' | 'stats' | 'security' | 'drive' | 'docker' | 'docs'>('remote');
 
   // Form states for settings
   const [formData, setFormData] = useState<ParentSettings>({ ...settings });
@@ -660,6 +661,19 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           >
             <Server className="w-4 h-4" />
             <span>Docker & Server</span>
+          </button>
+
+          <button
+            id="tab-parent-docs"
+            onClick={() => setActiveTab('docs')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+              activeTab === 'docs'
+                ? 'bg-amber-500 text-slate-950'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>Dokumentace & Nápověda</span>
           </button>
         </div>
 
@@ -2124,6 +2138,14 @@ export const ParentDashboard: React.FC<ParentDashboardProps> = ({
           {/* TAB 7: DOCKER & SERVER DEPLOYMENT */}
           {activeTab === 'docker' && (
             <DockerDeployTab />
+          )}
+
+          {/* TAB 8: DOCUMENTATION & USER GUIDE */}
+          {activeTab === 'docs' && (
+            <DocumentationTab
+              onOpenScriptModal={onOpenScriptModal}
+              onNavigateToTab={(tab) => setActiveTab(tab)}
+            />
           )}
         </div>
       </div>
