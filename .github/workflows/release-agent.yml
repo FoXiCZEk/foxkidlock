@@ -67,9 +67,8 @@ jobs:
             touch "$TARGET_DIR/server_url.txt"
           fi
 
-          # Převod konců řádků na Windows CRLF
-          sed -i 's/$/\r/' "$TARGET_DIR/NAVOD-K-POUZITI.txt" || true
-          sed -i 's/$/\r/' "$TARGET_DIR/server_url.txt" || true
+          # Zaručený převod VŠECH souborů v balíčku na Windows CRLF formát
+          find "$TARGET_DIR" -type f -exec sed -i 's/\r$//; s/$/\r/' {} +
 
           # Vytvoření ZIP archivu a kontrolních součtů SHA256
           zip -r "${{ steps.vars.outputs.ZIP_NAME }}" "$TARGET_DIR"

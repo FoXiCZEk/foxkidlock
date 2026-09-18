@@ -908,10 +908,18 @@ Požadavky na úlohy:
     let content = fs.existsSync(batPath) ? fs.readFileSync(batPath, 'utf-8') : '';
 
     const inject = `\r\necho ${currentServerUrl}> "%INSTALL_DIR%\\server_url.txt"\r\n`;
-    content = content.replace(
-      'echo [2/4] Kopíruji soubory agenta...',
-      `echo [2/4] Kopíruji soubory agenta...${inject}`
-    );
+    if (content.includes('echo [2/4] Kopiruji soubory agenta...')) {
+      content = content.replace(
+        'echo [2/4] Kopiruji soubory agenta...',
+        `echo [2/4] Kopiruji soubory agenta...${inject}`
+      );
+    } else if (content.includes('echo [2/4] Kopíruji soubory agenta...')) {
+      content = content.replace(
+        'echo [2/4] Kopíruji soubory agenta...',
+        `echo [2/4] Kopíruji soubory agenta...${inject}`
+      );
+    }
+    content = content.replace(/\r?\n/g, '\r\n');
 
     res.setHeader('Content-Type', 'application/x-bat; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="Instalovat-Agenta-Windows.bat"');

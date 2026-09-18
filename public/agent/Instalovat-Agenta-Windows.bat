@@ -1,29 +1,29 @@
 @echo off
-chcp 65001 >nul
+setlocal EnableDelayedExpansion
 title Instalace Windows Agenta - Rodicovsky Zamek PC
 color 0a
 
 echo ==============================================================================
-echo       INSTALACE: WINDOWS SYSTÉMOVÝ AGENT (ZAMYKÁNÍ, HRY & WEBY)
+echo       INSTALACE: WINDOWS SYSTEMOVY AGENT (ZAMYKANI, HRY A WEBY)
 echo ==============================================================================
-echo  Tento instalační průvodce nastaví systémového agenta na tomto počítači:
+echo  Tento instalacni pruvodce nastavi systemoveho agenta na tomto pocitaci:
 echo.
-echo   [+] 1. Automatické spouštění ihned po přihlášení (Windows Startup)
-echo   [+] 2. Nepřetržitý tichý běh na pozadí bez blikání oken konzole
-echo   [+] 3. Okamžité ukončení her (Minecraft, Roblox, Steam...) při zamknutí
-echo   [+] 4. Blokování rozptylujících webů (YouTube, Netflix, TikTok, Twitch...)
-echo   [+] 5. Vzdálená správa z mobilu/tabletu - okamžité odemčení i zamčení
-echo   [+] 6. Watchdog: Udržení celoobrazovkového Kiosku s úkoly
+echo   [+] 1. Automaticke spousteni ihned po prihlaseni (Windows Startup)
+echo   [+] 2. Nepretrzity tichy beh na pozadi bez blikani oken konzole
+echo   [+] 3. Okamzite ukonceni her (Minecraft, Roblox, Steam...) pri zamknuti
+echo   [+] 4. Blokovani rozptylujicich webu (YouTube, Netflix, TikTok, Twitch...)
+echo   [+] 5. Vzdalena sprava z mobilu/tabletu - okamzite odemceni i zamceni
+echo   [+] 6. Watchdog: Udrzeni celoobrazovkoveho Kiosku s ukoly
 echo ==============================================================================
 echo.
 
 set "INSTALL_DIR=%LOCALAPPDATA%\RodicovskyZamekPC\agent"
 set "SOURCE_DIR=%~dp0"
 
-echo [1/4] Vytvářím bezpečnou cílovou složku: "%INSTALL_DIR%"...
+echo [1/4] Vytvarim bezpecnou cilovou slozku: "%INSTALL_DIR%"...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
-echo [2/4] Kopíruji soubory agenta...
+echo [2/4] Kopiruji soubory agenta...
 copy /Y "%SOURCE_DIR%Agent-Zamek-PC.ps1" "%INSTALL_DIR%\Agent-Zamek-PC.ps1" >nul
 copy /Y "%SOURCE_DIR%Spustit-Agenta-Skryte.vbs" "%INSTALL_DIR%\Spustit-Agenta-Skryte.vbs" >nul
 if exist "%SOURCE_DIR%Odinstalovat-Agenta-Windows.bat" (
@@ -39,33 +39,33 @@ if exist "%SOURCE_DIR%server_url.txt" (
     copy /Y "%SOURCE_DIR%server_url.txt" "%INSTALL_DIR%\server_url.txt" >nul
 )
 
-echo [3/4] Registruji automatické spuštění po přihlášení uživatele...
+echo [3/4] Registruji automaticke spousteni po prihlaseni uzivatele...
 
-REM Pokus o registraci naplánované úlohy s nejvyššími právy (pro přístup k hosts souboru)
+REM Pokus o registraci naplanovane ulohy s nejvyssimi pravy (pro hosts soubor)
 schtasks /create /tn "RodicovskyZamekAgent" /tr "wscript.exe \"%INSTALL_DIR%\Spustit-Agenta-Skryte.vbs\"" /sc onlogon /rl highest /f >nul 2>&1
 
-REM Registr Run pro aktuálního uživatele (funguje vždy bez administrátorských práv)
+REM Registr Run pro aktualniho uzivatele (funguje vzdy bez administratorskych prav)
 reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "RodicovskyZamekAgent" /t REG_SZ /d "wscript.exe \"%INSTALL_DIR%\Spustit-Agenta-Skryte.vbs\"" /f >nul 2>&1
 
-REM Zkopírování spouštěče do složky Po spuštění (Startup)
+REM Zkopirovani spoustece do slozky Po spusteni (Startup)
 set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 if exist "%STARTUP_DIR%" (
     copy /Y "%INSTALL_DIR%\Spustit-Agenta-Skryte.vbs" "%STARTUP_DIR%\RodicovskyZamekAgent.vbs" >nul 2>&1
 )
 
-echo [4/4] Spouštím agenta na pozadí právě teď...
-wscript.exe "%INSTALL_DIR%\Spustit-Agenta-Skryte.vbs"
+echo [4/4] Spoustim agenta na pozadi...
+start "" wscript.exe "%INSTALL_DIR%\Spustit-Agenta-Skryte.vbs"
 
 echo.
 echo ==============================================================================
-echo  [ÚSPĚCH] Agent byl úspěšně nainstalován a nyní běží nepřetržitě na pozadí!
+echo  [USPECH] Agent byl uspesne nainstalovan a nyni bezi nepretrzite na pozadi!
 echo ==============================================================================
-echo  - Při každém zapnutí nebo přihlášení do Windows se agent spustí sám.
-echo  - Blokuje nepovolené hry i webové portály (YouTube, Netflix atd.).
-echo  - Na dálku z rodičovského panelu můžete kdykoli odemknout nebo zamknout.
+echo  - Pri kazdem zapnuti nebo prihlaseni do Windows se agent spusti sam.
+echo  - Blokuje nepovolene hry i webove portaly (YouTube, Netflix atd.).
+echo  - Na dalku z rodicovskeho panelu muzete kdykoli odemknout nebo zamknout.
 echo.
-echo  Stav připojení agenta můžete ihned vidět v rodičovském panelu.
+echo  Stav pripojeni agenta uvidite za malou chvili v rodicovskem panelu.
 echo ==============================================================================
 echo.
-echo Stiskněte libovolnou klávesu pro dokončení...
+echo Stisknete libovolnou klavesu pro dokonceni...
 pause >nul
